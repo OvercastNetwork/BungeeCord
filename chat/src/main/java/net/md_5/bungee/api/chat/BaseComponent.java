@@ -1,72 +1,26 @@
 package net.md_5.bungee.api.chat;
 
-import lombok.AccessLevel;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import net.md_5.bungee.api.ChatColor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import lombok.ToString;
+import java.util.Set;
 
 @Setter
-@ToString(exclude = "parent")
 @NoArgsConstructor
-public abstract class BaseComponent
-{
-
-    @Setter(AccessLevel.NONE)
-    BaseComponent parent;
-
-    /**
-     * The color of this component and any child components (unless overridden)
-     */
-    private ChatColor color;
-    /**
-     * Whether this component and any child components (unless overridden) is
-     * bold
-     */
-    private Boolean bold;
-    /**
-     * Whether this component and any child components (unless overridden) is
-     * italic
-     */
-    private Boolean italic;
-    /**
-     * Whether this component and any child components (unless overridden) is
-     * underlined
-     */
-    private Boolean underlined;
-    /**
-     * Whether this component and any child components (unless overridden) is
-     * strikethrough
-     */
-    private Boolean strikethrough;
-    /**
-     * Whether this component and any child components (unless overridden) is
-     * obfuscated
-     */
-    private Boolean obfuscated;
+public abstract class BaseComponent extends Formatting {
 
     /**
      * Appended components that inherit this component's formatting and events
      */
     @Getter
     private List<BaseComponent> extra;
-
-    /**
-     * The action to preform when this component (and child components) are
-     * clicked
-     */
-    @Getter
-    private ClickEvent clickEvent;
-    /**
-     * The action to preform when this component (and child components) are
-     * hovered over
-     */
-    @Getter
-    private HoverEvent hoverEvent;
 
     BaseComponent(BaseComponent old)
     {
@@ -127,178 +81,8 @@ public abstract class BaseComponent
         return builder.toString();
     }
 
-    /**
-     * Returns the color of this component. This uses the parent's color if this
-     * component doesn't have one. {@link net.md_5.bungee.api.ChatColor#WHITE}
-     * is returned if no color is found.
-     *
-     * @return the color of this component
-     */
-    public ChatColor getColor()
-    {
-        if ( color == null )
-        {
-            if ( parent == null )
-            {
-                return ChatColor.WHITE;
-            }
-            return parent.getColor();
-        }
-        return color;
-    }
-
-    /**
-     * Returns the color of this component without checking the parents color.
-     * May return null
-     *
-     * @return the color of this component
-     */
-    public ChatColor getColorRaw()
-    {
-        return color;
-    }
-
-    /**
-     * Returns whether this component is bold. This uses the parent's setting if
-     * this component hasn't been set. false is returned if none of the parent
-     * chain has been set.
-     *
-     * @return whether the component is bold
-     */
-    public boolean isBold()
-    {
-        if ( bold == null )
-        {
-            return parent != null && parent.isBold();
-        }
-        return bold;
-    }
-
-    /**
-     * Returns whether this component is bold without checking the parents
-     * setting. May return null
-     *
-     * @return whether the component is bold
-     */
-    public Boolean isBoldRaw()
-    {
-        return bold;
-    }
-
-    /**
-     * Returns whether this component is italic. This uses the parent's setting
-     * if this component hasn't been set. false is returned if none of the
-     * parent chain has been set.
-     *
-     * @return whether the component is italic
-     */
-    public boolean isItalic()
-    {
-        if ( italic == null )
-        {
-            return parent != null && parent.isItalic();
-        }
-        return italic;
-    }
-
-    /**
-     * Returns whether this component is italic without checking the parents
-     * setting. May return null
-     *
-     * @return whether the component is italic
-     */
-    public Boolean isItalicRaw()
-    {
-        return italic;
-    }
-
-    /**
-     * Returns whether this component is underlined. This uses the parent's
-     * setting if this component hasn't been set. false is returned if none of
-     * the parent chain has been set.
-     *
-     * @return whether the component is underlined
-     */
-    public boolean isUnderlined()
-    {
-        if ( underlined == null )
-        {
-            return parent != null && parent.isUnderlined();
-        }
-        return underlined;
-    }
-
-    /**
-     * Returns whether this component is underlined without checking the parents
-     * setting. May return null
-     *
-     * @return whether the component is underlined
-     */
-    public Boolean isUnderlinedRaw()
-    {
-        return underlined;
-    }
-
-    /**
-     * Returns whether this component is strikethrough. This uses the parent's
-     * setting if this component hasn't been set. false is returned if none of
-     * the parent chain has been set.
-     *
-     * @return whether the component is strikethrough
-     */
-    public boolean isStrikethrough()
-    {
-        if ( strikethrough == null )
-        {
-            return parent != null && parent.isStrikethrough();
-        }
-        return strikethrough;
-    }
-
-    /**
-     * Returns whether this component is strikethrough without checking the
-     * parents setting. May return null
-     *
-     * @return whether the component is strikethrough
-     */
-    public Boolean isStrikethroughRaw()
-    {
-        return strikethrough;
-    }
-
-    /**
-     * Returns whether this component is obfuscated. This uses the parent's
-     * setting if this component hasn't been set. false is returned if none of
-     * the parent chain has been set.
-     *
-     * @return whether the component is obfuscated
-     */
-    public boolean isObfuscated()
-    {
-        if ( obfuscated == null )
-        {
-            return parent != null && parent.isObfuscated();
-        }
-        return obfuscated;
-    }
-
-    /**
-     * Returns whether this component is obfuscated without checking the parents
-     * setting. May return null
-     *
-     * @return whether the component is obfuscated
-     */
-    public Boolean isObfuscatedRaw()
-    {
-        return obfuscated;
-    }
-
     public void setExtra(List<BaseComponent> components)
     {
-        for ( BaseComponent component : components )
-        {
-            component.parent = this;
-        }
         extra = components;
     }
 
@@ -325,21 +109,7 @@ public abstract class BaseComponent
         {
             extra = new ArrayList<BaseComponent>();
         }
-        component.parent = this;
         extra.add( component );
-    }
-
-    /**
-     * Returns whether the component has any formatting or events applied to it
-     *
-     * @return Whether any formatting or events are applied
-     */
-    public boolean hasFormatting()
-    {
-        return color != null || bold != null
-                || italic != null || underlined != null
-                || strikethrough != null || obfuscated != null
-                || hoverEvent != null || clickEvent != null;
     }
 
     /**
@@ -374,18 +144,59 @@ public abstract class BaseComponent
     public String toLegacyText()
     {
         StringBuilder builder = new StringBuilder();
-        toLegacyText( builder );
+        toLegacyText(builder, null);
         return builder.toString();
     }
 
-    void toLegacyText(StringBuilder builder)
+    void toLegacyText(StringBuilder builder, Formatting format)
     {
+        format = Formatting.inherit(format, this);
+
         if ( extra != null )
         {
             for ( BaseComponent e : extra )
             {
-                e.toLegacyText( builder );
+                e.toLegacyText(builder, format);
             }
         }
+    }
+
+    protected void toString(List<String> fields, Set<BaseComponent> visited) {
+        if(getColorRaw() != null) fields.add("color=" + getColorRaw());
+        if(isBoldRaw() != null) fields.add("bold=" + isBoldRaw());
+        if(isItalicRaw() != null) fields.add("italic=" + isItalicRaw());
+        if(isUnderlinedRaw() != null) fields.add("underlined=" + isUnderlinedRaw());
+        if(isStrikethroughRaw() != null) fields.add("strikethrough=" + isStrikethroughRaw());
+        if(isObfuscatedRaw() != null) fields.add("obfuscated=" + isObfuscatedRaw());
+
+        if(getClickEvent() != null) fields.add("clickEvent=" + getClickEvent());
+        if(getHoverEvent() != null) fields.add("hoverEvent=" + getHoverEvent());
+
+        if(getExtra() != null && !getExtra().isEmpty()) {
+            List<String> extraText = new ArrayList<String>();
+            for(BaseComponent extra : getExtra()) {
+                extraText.add(extra.toString(visited));
+            }
+            fields.add("extra=[" + Joiner.on(", ").join(extraText) + "]");
+        }
+    }
+
+    protected String toString(Set<BaseComponent> visited) {
+        String text = getClass().getSimpleName() +  "{";
+        if(visited.contains(this)) {
+            text += "...";
+        } else {
+            visited = ImmutableSet.<BaseComponent>builder().addAll(visited).add(this).build();
+            List<String> fields = new ArrayList<String>();
+            toString(fields, visited);
+            text += Joiner.on(", ").join(fields);
+        }
+
+        return text + "}";
+    }
+
+    @Override
+    public String toString() {
+        return toString(Collections.<BaseComponent>emptySet());
     }
 }

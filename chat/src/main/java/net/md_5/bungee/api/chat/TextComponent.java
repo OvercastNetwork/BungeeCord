@@ -8,6 +8,8 @@ import net.md_5.bungee.api.ChatColor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -178,36 +180,38 @@ public class TextComponent extends BaseComponent
     }
 
     @Override
-    protected void toLegacyText(StringBuilder builder)
+    protected void toLegacyText(StringBuilder builder, Formatting format)
     {
-        builder.append( getColor() );
-        if ( isBold() )
+        format = Formatting.inherit(format, this);
+
+        builder.append( getColor(format) );
+        if ( isBold(format) )
         {
             builder.append( ChatColor.BOLD );
         }
-        if ( isItalic() )
+        if ( isItalic(format) )
         {
             builder.append( ChatColor.ITALIC );
         }
-        if ( isUnderlined() )
+        if ( isUnderlined(format) )
         {
             builder.append( ChatColor.UNDERLINE );
         }
-        if ( isStrikethrough() )
+        if ( isStrikethrough(format) )
         {
             builder.append( ChatColor.STRIKETHROUGH );
         }
-        if ( isObfuscated() )
+        if ( isObfuscated(format) )
         {
             builder.append( ChatColor.MAGIC );
         }
         builder.append( text );
-        super.toLegacyText( builder );
+        super.toLegacyText( builder, format );
     }
 
     @Override
-    public String toString()
-    {
-        return String.format( "TextComponent{text=%s, %s}", text, super.toString() );
+    protected void toString(List<String> fields, Set<BaseComponent> visited) {
+        fields.add("text=" + text);
+        super.toString(fields, visited);
     }
 }

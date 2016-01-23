@@ -97,6 +97,37 @@ public abstract class ProxyServer
     public abstract Map<String, ServerInfo> getServers();
 
     /**
+     * Register the given map to be used to enumerate servers, and resolve them by name.
+     *
+     * The map returned from {@link #getServers()} is a live superset view of statically
+     * configured servers plus all the maps registered through this method.
+     *
+     * The master map will synchronize on each sub-map while calling any method on it, or
+     * iterating over any of its views. The master map will also be locked when that
+     * happens, so it must not be accessed while holding a lock on any of its sub-maps, or a
+     * deadlock may occur. The master map itself is entirely safe for concurrent access.
+     * Its collection views are immutable snapshots.
+     *
+     * The master map does not transform keys in any way, so if case-insensitivity is
+     * desired, it must be implemented by the sub-map.
+     *
+     * If multiple sub-maps contain entries with the same key, all entries will be included
+     * in the {@link Map#entrySet} and {@link Map#values} views of the master map,
+     * while the {@link Map#keySet} view will de-duplicate the keys. An arbitrary entry
+     * will be chosen when looking up a single duplicated key.
+     *
+     * @return true if the sub-map was added, false if it was already registered.
+     */
+    public abstract boolean addServers(Map<String, ServerInfo> servers);
+
+    /**
+     * Unregister the given server sub-map.
+     *
+     * @return true if the sub-map was unregistered, false if it was not registered to begin with.
+     */
+    public abstract boolean removeServers(Map<String, ServerInfo> servers);
+
+    /**
      * Gets the server info of a server.
      *
      * @param name the name of the configured server

@@ -43,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -80,6 +81,7 @@ import net.md_5.bungee.protocol.packet.Chat;
 import net.md_5.bungee.protocol.packet.PluginMessage;
 import net.md_5.bungee.query.RemoteQuery;
 import net.md_5.bungee.util.CaseInsensitiveMap;
+import net.md_5.bungee.util.ConcurrentAggregateMap;
 import org.fusesource.jansi.AnsiConsole;
 
 /**
@@ -97,6 +99,8 @@ public class BungeeCord extends ProxyServer
      */
     @Getter
     public final Configuration config = new Configuration();
+
+    private final ConcurrentAggregateMap<String, ServerInfo> servers = new ConcurrentAggregateMap<>();
     /**
      * Localization bundle.
      */
@@ -248,6 +252,7 @@ public class BungeeCord extends ProxyServer
 
         pluginManager.loadPlugins();
         config.load();
+        addServers(config.getServers());
 
         registerChannel( ForgeConstants.FML_TAG );
         registerChannel( ForgeConstants.FML_HANDSHAKE_TAG );
@@ -536,13 +541,23 @@ public class BungeeCord extends ProxyServer
     @Override
     public Map<String, ServerInfo> getServers()
     {
-        return config.getServers();
+        return servers;
     }
 
     @Override
     public ServerInfo getServerInfo(String name)
     {
         return getServers().get( name );
+    }
+
+    @Override
+    public boolean addServers(Map<String, ServerInfo> servers) {
+        return this.servers.addMap(servers);
+    }
+
+    @Override
+    public boolean removeServers(Map<String, ServerInfo> servers) {
+        return this.servers.removeMap(servers);
     }
 
     @Override

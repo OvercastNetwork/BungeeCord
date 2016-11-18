@@ -1,5 +1,6 @@
 package net.md_5.bungee.api.chat;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
@@ -8,6 +9,7 @@ import net.md_5.bungee.api.chat.ClickEvent.Action;
 @Getter
 @ToString
 @RequiredArgsConstructor
+@EqualsAndHashCode
 public final class ClickEvent
 {
 

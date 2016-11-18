@@ -2,54 +2,54 @@ package net.md_5.bungee.api.plugin;
 
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.List;
 
 public class PluginClassloader extends URLClassLoader
 {
-
-    private static final Set<PluginClassloader> allLoaders = new CopyOnWriteArraySet<>();
-
     static
     {
         ClassLoader.registerAsParallelCapable();
     }
 
-    public PluginClassloader(URL[] urls)
+    private final List<PluginClassloader> dependencies;
+
+    public PluginClassloader(List<PluginClassloader> dependencies, URL[] urls)
     {
         super( urls );
-        allLoaders.add( this );
+        this.dependencies = dependencies;
     }
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException
     {
-        return loadClass0( name, resolve, true );
-    }
-
-    private Class<?> loadClass0(String name, boolean resolve, boolean checkOther) throws ClassNotFoundException
-    {
-        try
-        {
-            return super.loadClass( name, resolve );
-        } catch ( ClassNotFoundException ex )
-        {
-        }
-        if ( checkOther )
-        {
-            for ( PluginClassloader loader : allLoaders )
-            {
-                if ( loader != this )
-                {
-                    try
-                    {
-                        return loader.loadClass0( name, resolve, false );
-                    } catch ( ClassNotFoundException ex )
-                    {
-                    }
+        synchronized(getClassLoadingLock(name)) {
+            try {
+                return loadLocalClass(name, resolve);
+            } catch(ClassNotFoundException e1) {
+                try {
+                    return loadDependencyClass(name, resolve);
+                } catch(ClassNotFoundException e2) {
+                    return super.loadClass(name, resolve);
                 }
             }
         }
-        throw new ClassNotFoundException( name );
+    }
+
+    private Class<?> loadLocalClass(String name, boolean resolve) throws ClassNotFoundException {
+        Class<?> cls = findLoadedClass(name);
+        if(cls == null) cls = findClass(name);
+        if(resolve) resolveClass(cls);
+        return cls;
+    }
+
+    private Class<?> loadDependencyClass(String name, boolean resolve) throws ClassNotFoundException {
+        for(PluginClassloader loader : dependencies) {
+            try {
+                return loader.loadLocalClass(name, resolve);
+            } catch(ClassNotFoundException e) {
+                // continue
+            }
+        }
+        throw new ClassNotFoundException(name);
     }
 }

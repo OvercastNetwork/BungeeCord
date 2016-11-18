@@ -149,6 +149,9 @@ public final class UserConnection implements ProxiedPlayer
         }
     };
 
+    @Getter
+    private Throwable disconnectException;
+
     public void init()
     {
         this.entityRewrite = EntityMap.getEntityMap( getPendingConnection().getVersion() );
@@ -241,7 +244,11 @@ public final class UserConnection implements ProxiedPlayer
         return next;
     }
 
-    public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry)
+    public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry) {
+        connect(info, callback, retry, false);
+    }
+
+    public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry, final boolean quiet)
     {
         Preconditions.checkNotNull( info, "info" );
 
@@ -256,6 +263,7 @@ public final class UserConnection implements ProxiedPlayer
         }
 
         final BungeeServerInfo target = (BungeeServerInfo) event.getTarget(); // Update in case the event changed target
+        final String fakeUsername = event.getFakeUsername();
 
         if ( getServer() != null && Objects.equal( getServer().getInfo(), target ) )
         {
@@ -264,7 +272,9 @@ public final class UserConnection implements ProxiedPlayer
                 callback.done( false, null );
             }
 
-            sendMessage( bungee.getTranslation( "already_connected" ) );
+            if(!quiet) {
+                sendMessage( bungee.getTranslation( "already_connected" ) );
+            }
             return;
         }
         if ( pendingConnects.contains( target ) )
@@ -274,7 +284,9 @@ public final class UserConnection implements ProxiedPlayer
                 callback.done( false, null );
             }
 
-            sendMessage( bungee.getTranslation( "already_connecting" ) );
+            if(!quiet) {
+                sendMessage( bungee.getTranslation( "already_connecting" ) );
+            }
             return;
         }
 
@@ -288,7 +300,7 @@ public final class UserConnection implements ProxiedPlayer
                 PipelineUtils.BASE.initChannel( ch );
                 ch.pipeline().addAfter( PipelineUtils.FRAME_DECODER, PipelineUtils.PACKET_DECODER, new MinecraftDecoder( Protocol.HANDSHAKE, false, getPendingConnection().getVersion() ) );
                 ch.pipeline().addAfter( PipelineUtils.FRAME_PREPENDER, PipelineUtils.PACKET_ENCODER, new MinecraftEncoder( Protocol.HANDSHAKE, false, getPendingConnection().getVersion() ) );
-                ch.pipeline().get( HandlerBoss.class ).setHandler( new ServerConnector( bungee, UserConnection.this, target ) );
+                ch.pipeline().get( HandlerBoss.class ).setHandler( new ServerConnector( bungee, UserConnection.this, target, fakeUsername ) );
             }
         };
         ChannelFutureListener listener = new ChannelFutureListener()
@@ -310,13 +322,14 @@ public final class UserConnection implements ProxiedPlayer
                     ServerInfo def = updateAndGetNextServer( target );
                     if ( retry && def != null && ( getServer() == null || def != getServer().getInfo() ) )
                     {
-                        sendMessage( bungee.getTranslation( "fallback_lobby" ) );
+                        if(!quiet) {
+                            sendMessage( bungee.getTranslation( "fallback_lobby" ) );
+                        }
                         connect( def, null, false );
                     } else if ( dimensionChange )
                     {
                         disconnect( bungee.getTranslation( "fallback_kick", future.cause().getClass().getName() ) );
-                    } else
-                    {
+                    } else if(!quiet) {
                         sendMessage( bungee.getTranslation( "fallback_kick", future.cause().getClass().getName() ) );
                     }
                 }
@@ -334,6 +347,13 @@ public final class UserConnection implements ProxiedPlayer
             b.localAddress( getPendingConnection().getListener().getHost().getHostString(), 0 );
         }
         b.connect().addListener( listener );
+    }
+
+    public void disconnect(Throwable exception) {
+        if(disconnectException == null) {
+            disconnectException = exception;
+        }
+        disconnect(Util.exception(exception));
     }
 
     @Override
@@ -551,6 +571,12 @@ public final class UserConnection implements ProxiedPlayer
     }
 
     @Override
+    public Locale getCurrentLocale()
+    {
+        return getLocale();
+    }
+
+    @Override
     public boolean isForgeUser()
     {
         return forgeClientHandler.isForgeUser();
@@ -621,5 +647,10 @@ public final class UserConnection implements ProxiedPlayer
     public boolean isConnected()
     {
         return !ch.isClosed();
+    }
+
+    @Override
+    public int getProtocolVersion() {
+        return getPendingConnection().getVersion();
     }
 }

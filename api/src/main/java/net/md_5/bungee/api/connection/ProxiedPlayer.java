@@ -2,7 +2,7 @@ package net.md_5.bungee.api.connection;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
+
 import net.md_5.bungee.api.Callback;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.CommandSender;
@@ -14,23 +14,8 @@ import net.md_5.bungee.api.config.ServerInfo;
  * Represents a player who's connection is being connected to somewhere else,
  * whether it be a remote or embedded server.
  */
-public interface ProxiedPlayer extends Connection, CommandSender
+public interface ProxiedPlayer extends Connection, CommandSender, tc.oc.minecraft.api.entity.Player
 {
-
-    /**
-     * Gets this player's display name.
-     *
-     * @return the players current display name
-     */
-    String getDisplayName();
-
-    /**
-     * Sets this players display name to be used as their nametag and tab list
-     * name.
-     *
-     * @param name the name to set
-     */
-    void setDisplayName(String name);
 
     /**
      * Send a message to the specified screen position of this player.
@@ -129,13 +114,6 @@ public interface ProxiedPlayer extends Connection, CommandSender
     String getUUID();
 
     /**
-     * Get this connection's UUID, if set.
-     *
-     * @return the UUID
-     */
-    UUID getUniqueId();
-
-    /**
      * Gets this player's locale.
      *
      * @return the locale
@@ -211,4 +189,6 @@ public interface ProxiedPlayer extends Connection, CommandSender
      * not occurred for this {@link ProxiedPlayer} yet.
      */
     Map<String, String> getModList();
+
+    Throwable getDisconnectException();
 }

@@ -19,10 +19,9 @@ public class TranslatableComponentSerializer extends BaseComponentSerializer imp
     @Override
     public TranslatableComponent deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
     {
-        TranslatableComponent component = new TranslatableComponent();
         JsonObject object = json.getAsJsonObject();
+        TranslatableComponent component = new TranslatableComponent(object.get( "translate" ).getAsString());
         deserialize( object, component, context );
-        component.setTranslate( object.get( "translate" ).getAsString() );
         if ( object.has( "with" ) )
         {
             component.setWith( Arrays.asList( (BaseComponent[]) context.deserialize( object.get( "with" ), BaseComponent[].class ) ) );

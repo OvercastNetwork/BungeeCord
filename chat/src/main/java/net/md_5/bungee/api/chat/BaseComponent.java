@@ -1,23 +1,34 @@
 package net.md_5.bungee.api.chat;
 
-import lombok.AccessLevel;
+import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.ChatStringBuilder;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
-import lombok.ToString;
+import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 @Setter
-@ToString(exclude = "parent")
 @NoArgsConstructor
 public abstract class BaseComponent
 {
-
-    @Setter(AccessLevel.NONE)
-    BaseComponent parent;
+    /**
+     * An immutable, empty component list. {@link BaseComponent#extra} is always set to this when empty.
+     * Subclasses can use this for their own fields as well.
+     */
+    protected static final List<BaseComponent> EMPTY_COMPONENT_LIST = Collections.emptyList();
 
     /**
      * The color of this component and any child components (unless overridden)
@@ -59,7 +70,7 @@ public abstract class BaseComponent
      * Appended components that inherit this component's formatting and events
      */
     @Getter
-    private List<BaseComponent> extra;
+    private List<BaseComponent> extra = EMPTY_COMPONENT_LIST;
 
     /**
      * The action to preform when this component (and child components) are
@@ -85,12 +96,9 @@ public abstract class BaseComponent
         setInsertion( old.getInsertion() );
         setClickEvent( old.getClickEvent() );
         setHoverEvent( old.getHoverEvent() );
-        if ( old.getExtra() != null )
+        for ( BaseComponent component : old.getExtra() )
         {
-            for ( BaseComponent component : old.getExtra() )
-            {
-                addExtra( component.duplicate() );
-            }
+            addValidExtra( component.duplicate() );
         }
     }
 
@@ -101,6 +109,18 @@ public abstract class BaseComponent
      */
     public abstract BaseComponent duplicate();
 
+    public static String[] toLegacyArray(BaseComponent... components) {
+        final String[] legacies = new String[components.length];
+        for(int i = 0; i < components.length; i++) {
+            legacies[i] = components[i].toLegacyText();
+        }
+        return legacies;
+    }
+
+    public static String toLegacyText(BaseComponent... components) {
+        return toLegacyText(null, ImmutableSet.<ChatColor>of(), components);
+    }
+
     /**
      * Converts the components to a string that uses the old formatting codes
      * ({@link net.md_5.bungee.api.ChatColor#COLOR_CHAR}
@@ -108,12 +128,12 @@ public abstract class BaseComponent
      * @param components the components to convert
      * @return the string in the old format
      */
-    public static String toLegacyText(BaseComponent... components)
+    public static String toLegacyText(@Nullable ChatColor color, Set<ChatColor> decorations, BaseComponent... components)
     {
         StringBuilder builder = new StringBuilder();
         for ( BaseComponent msg : components )
         {
-            builder.append( msg.toLegacyText() );
+            builder.append( msg.toLegacyText(color, decorations) );
         }
         return builder.toString();
     }
@@ -135,34 +155,33 @@ public abstract class BaseComponent
     }
 
     /**
-     * Returns the color of this component. This uses the parent's color if this
-     * component doesn't have one. {@link net.md_5.bungee.api.ChatColor#WHITE}
-     * is returned if no color is found.
+     * Returns the color of this component, or {@link net.md_5.bungee.api.ChatColor#WHITE}
+     * if this component has no color.
      *
      * @return the color of this component
      */
     public ChatColor getColor()
     {
-        if ( color == null )
-        {
-            if ( parent == null )
-            {
-                return ChatColor.WHITE;
-            }
-            return parent.getColor();
-        }
-        return color;
+        return color != null ? color : ChatColor.WHITE;
     }
 
     /**
-     * Returns the color of this component without checking the parents color.
-     * May return null
+     * Returns the color of this component, or null if this component has no color.
      *
      * @return the color of this component
      */
     public ChatColor getColorRaw()
     {
         return color;
+    }
+
+    public ChatColor getColor(ChatColor def) {
+        return color != null ? color : def;
+    }
+
+    public void setColor(@Nullable ChatColor color) {
+        Preconditions.checkArgument(color == null || color.isColor(), "not a color");
+        this.color = color;
     }
 
     /**
@@ -174,11 +193,7 @@ public abstract class BaseComponent
      */
     public boolean isBold()
     {
-        if ( bold == null )
-        {
-            return parent != null && parent.isBold();
-        }
-        return bold;
+        return bold != null && bold;
     }
 
     /**
@@ -201,11 +216,7 @@ public abstract class BaseComponent
      */
     public boolean isItalic()
     {
-        if ( italic == null )
-        {
-            return parent != null && parent.isItalic();
-        }
-        return italic;
+        return italic != null && italic;
     }
 
     /**
@@ -228,11 +239,7 @@ public abstract class BaseComponent
      */
     public boolean isUnderlined()
     {
-        if ( underlined == null )
-        {
-            return parent != null && parent.isUnderlined();
-        }
-        return underlined;
+        return underlined != null && underlined;
     }
 
     /**
@@ -255,11 +262,7 @@ public abstract class BaseComponent
      */
     public boolean isStrikethrough()
     {
-        if ( strikethrough == null )
-        {
-            return parent != null && parent.isStrikethrough();
-        }
-        return strikethrough;
+        return strikethrough != null && strikethrough;
     }
 
     /**
@@ -282,11 +285,7 @@ public abstract class BaseComponent
      */
     public boolean isObfuscated()
     {
-        if ( obfuscated == null )
-        {
-            return parent != null && parent.isObfuscated();
-        }
-        return obfuscated;
+        return obfuscated != null && obfuscated;
     }
 
     /**
@@ -300,13 +299,30 @@ public abstract class BaseComponent
         return obfuscated;
     }
 
+    public void setHoverEvent(HoverEvent hoverEvent) {
+        if(hoverEvent != null) {
+            for(BaseComponent child : hoverEvent.getValue()) validateChild(child);
+        }
+        this.hoverEvent = hoverEvent;
+    }
+
     public void setExtra(List<BaseComponent> components)
     {
-        for ( BaseComponent component : components )
-        {
-            component.parent = this;
+        if(components == null || components.isEmpty()) {
+            extra = EMPTY_COMPONENT_LIST;
+        } else {
+            for(BaseComponent child : components) validateChild(child);
+            extra = new ArrayList<BaseComponent>(components);
         }
-        extra = components;
+    }
+
+    public void setExtra(BaseComponent... components) {
+        if(components == null || components.length == 0) {
+            extra = EMPTY_COMPONENT_LIST;
+        } else {
+            for(BaseComponent child : components) validateChild(child);
+            extra = Lists.newArrayList(components);
+        }
     }
 
     /**
@@ -317,7 +333,7 @@ public abstract class BaseComponent
      */
     public void addExtra(String text)
     {
-        addExtra( new TextComponent( text ) );
+        addValidExtra( new TextComponent( text ) );
     }
 
     /**
@@ -325,14 +341,24 @@ public abstract class BaseComponent
      * component's formatting
      *
      * @param component the component to append
+     *                  @throws IllegalArgumentException if a component cycle is detected
      */
     public void addExtra(BaseComponent component)
     {
-        if ( extra == null )
+        validateChild( component );
+        addValidExtra(component);
+    }
+
+    /**
+     * Append a component without validating it. This method should only be called when
+     * it is certain not to create a component cycle i.e. when the given component is
+     * known not to contain this one.
+     */
+    private void addValidExtra(BaseComponent component) {
+        if (extra == EMPTY_COMPONENT_LIST)
         {
             extra = new ArrayList<BaseComponent>();
         }
-        component.parent = this;
         extra.add( component );
     }
 
@@ -373,26 +399,270 @@ public abstract class BaseComponent
     }
 
     /**
-     * Converts the component to a string that uses the old formatting codes
-     * ({@link net.md_5.bungee.api.ChatColor#COLOR_CHAR}
+     * Calls {@link #toLegacyText(ChatColor, Set)} with no default color or decorations.
+     */
+    public String toLegacyText() {
+        return toLegacyText(null, ImmutableSet.<ChatColor>of());
+    }
+
+    public String toLegacyText(@Nullable ChatColor color, ChatColor... decorations) {
+        return toLegacyText(color, ImmutableSet.copyOf(decorations));
+    }
+
+    /**
+     * Converts the component to a string that uses the old formatting codes {@link net.md_5.bungee.api.ChatColor#COLOR_CHAR}
+     *
+     * Any given default color or decorations will be applied as if they were inherited from a parent component.
+     * Any part of the string that is not formatted by some component in this tree will have the default formatting
+     * applied.
+     *
+     * If null is given as the default color, then no color is applied to the returned string other than from
+     * the components. This is only possible up to the first formatting applied by a component (because formatting
+     * cannot be "removed" in legacy text, only replaced). Any default-formatted text after that will be given
+     * the {@link ChatColor#RESET} format, which can also be the color passed to this method.
+     *
+     * @param color         Default color, or {@link ChatColor#RESET}, or null for no default
+     * @param decorations   Default decorations
      *
      * @return the string in the old format
      */
-    public String toLegacyText()
+    public String toLegacyText(@Nullable ChatColor color, Set<ChatColor> decorations)
     {
-        StringBuilder builder = new StringBuilder();
-        toLegacyText( builder );
+        Preconditions.checkArgument(color == null || color.isColor(), "default color cannot be a decoration");
+
+        ChatStringBuilder builder = new ChatStringBuilder();
+        toLegacyText(builder, color, decorations);
         return builder.toString();
     }
 
-    void toLegacyText(StringBuilder builder)
+    protected void toLegacyText(ChatStringBuilder builder, @Nullable ChatColor color, Set<ChatColor> decorations)
     {
+        color = getColor(color);
+        decorations = getDecorations(decorations);
+
+        toLegacyTextContent(builder, color, decorations);
+
         if ( extra != null )
         {
             for ( BaseComponent e : extra )
             {
-                e.toLegacyText( builder );
+                e.toLegacyText( builder, color, decorations );
             }
         }
+    }
+
+    protected void toLegacyTextContent(ChatStringBuilder builder, @Nullable ChatColor color, Set<ChatColor> decorations) {
+    }
+
+    protected static final Joiner JOINER = Joiner.on(", ");
+
+    public Boolean getDecoration(ChatColor decoration) {
+        switch(decoration) {
+            case BOLD: return isBoldRaw();
+            case ITALIC: return isItalicRaw();
+            case UNDERLINE: return isUnderlinedRaw();
+            case STRIKETHROUGH: return isStrikethroughRaw();
+            case MAGIC: return isObfuscatedRaw();
+            default: return null;
+        }
+    }
+
+    public boolean getDecoration(ChatColor decoration, boolean def) {
+        Boolean flag = getDecoration(decoration);
+        if(flag != null) {
+            return flag;
+        } else {
+            return def;
+        }
+    }
+
+    public void setDecoration(ChatColor decoration, Boolean flag) {
+        switch(decoration) {
+            case BOLD: setBold(flag); return;
+            case ITALIC: setItalic(flag); return;
+            case UNDERLINE: setUnderlined(flag); return;
+            case STRIKETHROUGH: setStrikethrough(flag); return;
+            case MAGIC: setObfuscated(flag); return;
+        }
+    }
+
+    public Map<ChatColor, Boolean> getDecorations() {
+        EnumMap<ChatColor, Boolean> decos = new EnumMap(ChatColor.class);
+        for(ChatColor deco : ChatColor.DECORATIONS) {
+            final Boolean flag = getDecoration(deco);
+            if(flag != null) decos.put(deco, flag);
+        }
+        return decos;
+    }
+
+    public Set<ChatColor> getDecorations(Set<ChatColor> def) {
+        EnumSet<ChatColor> decos = EnumSet.noneOf(ChatColor.class);
+        for(ChatColor deco : ChatColor.DECORATIONS) {
+            if(getDecoration(deco, def.contains(deco))) {
+                decos.add(deco);
+            }
+        }
+        return decos;
+    }
+
+    public void mergeDecorations(BaseComponent from) {
+        for(ChatColor deco : ChatColor.DECORATIONS) {
+            Boolean flag = from.getDecoration(deco);
+            if(flag != null) setDecoration(deco, flag);
+        }
+    }
+
+    public void mergeColor(BaseComponent from) {
+        if(from.getColorRaw() != null) {
+            setColor(from.getColorRaw());
+        }
+    }
+
+    public void mergeEvents(BaseComponent from) {
+        if(from.getClickEvent() != null) {
+            setClickEvent(from.getClickEvent());
+        }
+        if(from.getHoverEvent() != null) {
+            setHoverEvent(from.getHoverEvent());
+        }
+    }
+
+    public void mergeFormatting(BaseComponent from) {
+        mergeDecorations(from);
+        mergeColor(from);
+        mergeEvents(from);
+    }
+
+    /**
+     * Verify that the given component can become a part of this component
+     * by checking that they do not already have the inverse relationship.
+     *
+     * This method should be called BEFORE making the given component a child
+     * of this one, so that this component's state remains valid.
+     *
+     * @throws IllegalArgumentException if the given component contains this component
+     */
+    public void validateChild(BaseComponent child) {
+        Preconditions.checkNotNull(child);
+        if(child.contains(this)) {
+            throw new IllegalArgumentException("Component cycle detected between " + this + " and " + child);
+        }
+    }
+
+    /**
+     * Is the given component contained, in whole or in part, by this one?
+     *
+     * This method is used to detect containment cycles. Unlike with collections,
+     * equality is tested with == rather than {@link #equals(Object)}.
+     *
+     * Subclasses with recursive fields of their own should override this method
+     * to include those fields in the search.
+     *
+     * @return true if the given component is the same instance as this component,
+     *         or is a child of this component.
+     */
+    public boolean contains(BaseComponent child) {
+        if(this == child) return true;
+
+        for(BaseComponent extra : getExtra()) {
+            if(extra.contains(child)) return true;
+        }
+
+        if(getHoverEvent() != null) {
+            for(BaseComponent value : getHoverEvent().getValue()) {
+                if(value.contains(child)) return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Contribute leading fields to the output of {@link #toString()}.
+     *
+     * These fields should be relatively short i.e. not recursive. They will appear before
+     * any fields contributed by {@link #toStringLast(List)}, which can make the output
+     * easier to read.
+     */
+    protected void toStringFirst(List<String> fields) {
+        if(getColorRaw() != null) {
+            fields.add("color=\"" + getColorRaw().name().toLowerCase() + "\"");
+        }
+
+        for(ChatColor format : ChatColor.DECORATIONS) {
+            final Boolean flag = getDecoration(format);
+            if(flag != null) {
+                fields.add(format.name().toLowerCase() + "=" + flag);
+            }
+        }
+
+        if(getClickEvent() != null) {
+            fields.add("clickEvent=" + getClickEvent());
+        }
+    }
+
+    /**
+     * Contribute trailing fields to the output of {@link #toString()}.
+     *
+     * Particularly long fields, i.e. recursive ones, should be added here.
+     */
+    protected void toStringLast(List<String> fields) {
+        if(getHoverEvent() != null) {
+            fields.add("hoverEvent=" + getHoverEvent());
+        }
+
+        if(getExtra() != null && !getExtra().isEmpty()) {
+            fields.add("extra=[" + Joiner.on(", ").join(getExtra()) + "]");
+        }
+    }
+
+    /**
+     * Delegates to {@link #toStringFirst(List)} and {@link #toStringLast(List)}.
+     */
+    @Override
+    public final String toString() {
+        final List<String> fields = new ArrayList<String>();
+        toStringFirst(fields);
+        toStringLast(fields);
+        return getClass().getSimpleName() + "{" + JOINER.join(fields) + "}";
+    }
+
+    /**
+     * {@link #equals(Object)} delegates to this method when its argument is a {@link BaseComponent},
+     * and is not null or this.
+     *
+     * Overrides of this method must call the supermethod in order to compare the base properties.
+     * This should be done after performing any quick comparisons, and before any expensive ones,
+     * as the base method contains both.
+     */
+    protected boolean equals(BaseComponent that) {
+        return Objects.equal(this.color, that.color) &&
+               Objects.equal(this.bold, that.bold) &&
+               Objects.equal(this.italic, that.italic) &&
+               Objects.equal(this.underlined, that.underlined) &&
+               Objects.equal(this.strikethrough, that.strikethrough) &&
+               Objects.equal(this.obfuscated, that.obfuscated) &&
+               Objects.equal(this.insertion, that.insertion) &&
+               Objects.equal(this.clickEvent, that.clickEvent) &&
+               Objects.equal(this.hoverEvent, that.hoverEvent) &&
+               Objects.equal(this.extra, that.extra);
+    }
+
+    /**
+     * Delegates to {@link #equals(BaseComponent)}.
+     */
+    @Override
+    public final boolean equals(Object that) {
+        return that != null && (
+            that == this || (
+                that instanceof BaseComponent &&
+                equals((BaseComponent) that)
+            )
+        );
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(color, bold, italic, underlined, strikethrough, obfuscated, insertion, clickEvent, hoverEvent, extra);
     }
 }

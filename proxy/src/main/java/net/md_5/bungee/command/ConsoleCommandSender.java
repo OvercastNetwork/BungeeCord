@@ -10,7 +10,7 @@ import net.md_5.bungee.api.chat.BaseComponent;
 /**
  * Command sender representing the proxy console.
  */
-public class ConsoleCommandSender implements CommandSender
+public class ConsoleCommandSender implements CommandSender, tc.oc.minecraft.api.command.ConsoleCommandSender
 {
 
     @Getter

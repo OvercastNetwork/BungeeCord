@@ -10,7 +10,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 /**
  * Class used to represent a server to connect to.
  */
-public interface ServerInfo
+public interface ServerInfo extends tc.oc.minecraft.api.server.Server
 {
 
     /**

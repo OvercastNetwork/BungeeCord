@@ -15,7 +15,7 @@ import net.md_5.bungee.api.scheduler.GroupedThreadFactory;
  * Represents any Plugin that may be loaded at runtime to enhance existing
  * functionality.
  */
-public class Plugin
+public class Plugin implements tc.oc.minecraft.api.plugin.Plugin
 {
 
     @Getter
@@ -50,6 +50,12 @@ public class Plugin
     {
     }
 
+    @Override
+    public ProxyServer getServer()
+    {
+        return getProxy();
+    }
+
     /**
      * Gets the data folder where this plugin may store arbitrary data. It will
      * be a child of {@link ProxyServer#getPluginsFolder()}.
@@ -59,6 +65,12 @@ public class Plugin
     public final File getDataFolder()
     {
         return new File( getProxy().getPluginsFolder(), getDescription().getName() );
+    }
+
+    @Override
+    public InputStream getResource(String name)
+    {
+        return getResourceAsStream( name );
     }
 
     /**
@@ -85,7 +97,7 @@ public class Plugin
         this.proxy = proxy;
         this.description = description;
         this.file = description.getFile();
-        this.logger = new PluginLogger( this );
+        this.logger = PluginLogger.get( this );
     }
 
     //

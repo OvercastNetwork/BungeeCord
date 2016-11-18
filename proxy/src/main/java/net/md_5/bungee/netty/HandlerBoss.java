@@ -7,6 +7,8 @@ import io.netty.handler.codec.DecoderException;
 import io.netty.handler.timeout.ReadTimeoutException;
 import java.io.IOException;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
+
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.connection.CancelSendSignal;
 import net.md_5.bungee.connection.InitialHandler;
@@ -119,7 +121,10 @@ public class HandlerBoss extends ChannelInboundHandlerAdapter
                 } );
             } else
             {
-                ProxyServer.getInstance().getLogger().log( Level.SEVERE, handler + " - encountered exception", cause );
+                final LogRecord record = new LogRecord( Level.SEVERE, handler + " - encountered exception" );
+                record.setThrown( cause );
+                record.setParameters( new Object[]{ ctx.channel().remoteAddress() } );
+                ProxyServer.getInstance().getLogger().log( record );
             }
 
             if ( handler != null )

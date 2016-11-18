@@ -44,7 +44,7 @@ public class UpstreamBridge extends PacketHandler
     @Override
     public void exception(Throwable t) throws Exception
     {
-        con.disconnect( Util.exception( t ) );
+        con.disconnect( t );
     }
 
     @Override

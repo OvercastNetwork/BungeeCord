@@ -1,36 +1,41 @@
 package net.md_5.bungee.api.chat;
 
+import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import lombok.Setter;
-import net.md_5.bungee.api.ChatColor;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.ToString;
+
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.ChatStringBuilder;
 
 @Getter
 @Setter
-@ToString
-@NoArgsConstructor
 public class TranslatableComponent extends BaseComponent
 {
 
-    private final ResourceBundle locales = ResourceBundle.getBundle( "mojang-translations/en_US" );
-    private final Pattern format = Pattern.compile( "%(?:(\\d+)\\$)?([A-Za-z%]|$)" );
+    private static final ResourceBundle locales = ResourceBundle.getBundle( "mojang-translations/en_US" );
+    private static final Pattern format = Pattern.compile( "%(?:(\\d+)\\$)?([A-Za-z%]|$)" );
 
     /**
      * The key into the Minecraft locale files to use for the translation. The
      * text depends on the client's locale setting. The console is always en_US
      */
-    private String translate;
+    @NonNull private String translate;
+
     /**
      * The components to substitute into the translation
      */
-    private List<BaseComponent> with;
+    private List<BaseComponent> with = EMPTY_COMPONENT_LIST;
 
     /**
      * Creates a translatable component from the original to clone it.
@@ -49,7 +54,7 @@ public class TranslatableComponent extends BaseComponent
             {
                 temp.add( baseComponent.duplicate() );
             }
-            setWith( temp );
+            setWithInternal( temp );
         }
     }
 
@@ -77,7 +82,7 @@ public class TranslatableComponent extends BaseComponent
                 temp.add( (BaseComponent) w );
             }
         }
-        setWith( temp );
+        setWithInternal( temp );
     }
 
     /**
@@ -99,11 +104,27 @@ public class TranslatableComponent extends BaseComponent
      */
     public void setWith(List<BaseComponent> components)
     {
-        for ( BaseComponent component : components )
-        {
-            component.parent = this;
+        if(components == null) {
+            setWithInternal(null);
+        } else {
+            for(BaseComponent child : components) validateChild(child);
+            setWithInternal(new ArrayList<BaseComponent>(components));
         }
-        with = components;
+    }
+
+    /**
+     * Sets the translation substitutions to be used in this component. Removes
+     * any previously set substitutions
+     *
+     * @param components the components to substitute
+     */
+    public void setWith(BaseComponent... components)
+    {
+        setWith(components == null ? EMPTY_COMPONENT_LIST : Arrays.asList(components));
+    }
+
+    private void setWithInternal(List<BaseComponent> components) {
+        with = components == null || components.isEmpty() ? EMPTY_COMPONENT_LIST : components;
     }
 
     /**
@@ -125,11 +146,11 @@ public class TranslatableComponent extends BaseComponent
      */
     public void addWith(BaseComponent component)
     {
-        if ( with == null )
+        validateChild(component);
+        if ( with == EMPTY_COMPONENT_LIST )
         {
             with = new ArrayList<BaseComponent>();
         }
-        component.parent = this;
         with.add( component );
     }
 
@@ -179,7 +200,7 @@ public class TranslatableComponent extends BaseComponent
     }
 
     @Override
-    protected void toLegacyText(StringBuilder builder)
+    protected void toLegacyTextContent(ChatStringBuilder builder, ChatColor color, Set<ChatColor> decorations)
     {
         String trans;
         try
@@ -198,7 +219,7 @@ public class TranslatableComponent extends BaseComponent
             int pos = matcher.start();
             if ( pos != position )
             {
-                addFormat( builder );
+                builder.format( color, decorations );
                 builder.append( trans.substring( position, pos ) );
             }
             position = matcher.end();
@@ -209,44 +230,54 @@ public class TranslatableComponent extends BaseComponent
                 case 's':
                 case 'd':
                     String withIndex = matcher.group( 1 );
-                    with.get( withIndex != null ? Integer.parseInt( withIndex ) - 1 : i++ ).toLegacyText( builder );
+                    with.get( withIndex != null ? Integer.parseInt( withIndex ) - 1 : i++ ).toLegacyText( builder, color, decorations );
                     break;
                 case '%':
-                    addFormat( builder );
+                    builder.format( color, decorations );
                     builder.append( '%' );
                     break;
             }
         }
         if ( trans.length() != position )
         {
-            addFormat( builder );
+            builder.format( color, decorations );
             builder.append( trans.substring( position, trans.length() ) );
         }
-        super.toLegacyText( builder );
     }
 
-    private void addFormat(StringBuilder builder)
-    {
-        builder.append( getColor() );
-        if ( isBold() )
-        {
-            builder.append( ChatColor.BOLD );
+    @Override
+    public boolean contains(BaseComponent child) {
+        if(super.contains(child)) return true;
+        for(BaseComponent with : getWith()) {
+            if(with.contains(child)) return true;
         }
-        if ( isItalic() )
-        {
-            builder.append( ChatColor.ITALIC );
+        return false;
+    }
+
+    @Override
+    protected void toStringFirst(List<String> fields) {
+        fields.add("translate=\"" + getTranslate() + "\"");
+        super.toStringFirst(fields);
+    }
+
+    @Override
+    protected void toStringLast(List<String> fields) {
+        if(getWith() != null && !getWith().isEmpty()) {
+            fields.add("with=[" + JOINER.join(getWith()) + "]");
         }
-        if ( isUnderlined() )
-        {
-            builder.append( ChatColor.UNDERLINE );
-        }
-        if ( isStrikethrough() )
-        {
-            builder.append( ChatColor.STRIKETHROUGH );
-        }
-        if ( isObfuscated() )
-        {
-            builder.append( ChatColor.MAGIC );
-        }
+        super.toStringLast(fields);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(super.hashCode(), translate, with);
+    }
+
+    @Override
+    protected boolean equals(BaseComponent that) {
+        return that instanceof TranslatableComponent &&
+               translate.equals(((TranslatableComponent) that).getTranslate()) &&
+               super.equals(that) &&
+               with.equals(((TranslatableComponent) that).getWith());
     }
 }

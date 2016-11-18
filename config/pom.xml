@@ -4,13 +4,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>net.md-5</groupId>
+        <groupId>tc.oc</groupId>
         <artifactId>bungeecord-parent</artifactId>
         <version>1.11-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>net.md-5</groupId>
     <artifactId>bungeecord-config</artifactId>
     <version>1.11-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -19,6 +18,12 @@
     <description>Generic java configuration API intended for use with BungeeCord</description>
 
     <dependencies>
+        <dependency>
+            <groupId>tc.oc</groupId>
+            <artifactId>minecraft-api</artifactId>
+            <version>1.11-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>

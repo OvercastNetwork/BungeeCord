@@ -4,7 +4,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.CorruptedFrameException;
 
 import java.util.List;
 
@@ -33,7 +32,7 @@ public class Varint21FrameDecoder extends ByteToMessageDecoder
                 int length = DefinedPacket.readVarInt( Unpooled.wrappedBuffer( buf ) );
                 if ( length == 0 )
                 {
-                    throw new CorruptedFrameException( "Empty Packet!" );
+                    throw new BadPacketException( "Empty Packet!" );
                 }
 
                 if ( in.readableBytes() < length )
@@ -64,6 +63,6 @@ public class Varint21FrameDecoder extends ByteToMessageDecoder
             }
         }
 
-        throw new CorruptedFrameException( "length wider than 21-bit" );
+        throw new BadPacketException( "length wider than 21-bit" );
     }
 }

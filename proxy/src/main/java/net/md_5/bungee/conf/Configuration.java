@@ -1,6 +1,7 @@
 package net.md_5.bungee.conf;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import gnu.trove.map.TMap;
 import java.io.File;
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.util.UUID;
 import java.util.logging.Level;
 import javax.imageio.ImageIO;
 import lombok.Getter;
+import lombok.Synchronized;
 import net.md_5.bungee.api.Favicon;
 import net.md_5.bungee.api.ProxyConfig;
 import net.md_5.bungee.api.ProxyServer;
@@ -57,6 +59,7 @@ public class Configuration implements ProxyConfig
     private boolean ipForward;
     private Favicon favicon;
     private int compressionThreshold = 256;
+    private boolean requireAllPlugins;
 
     public void load()
     {
@@ -84,6 +87,7 @@ public class Configuration implements ProxyConfig
         throttle = adapter.getInt( "connection_throttle", throttle );
         ipForward = adapter.getBoolean( "ip_forward", ipForward );
         compressionThreshold = adapter.getInt( "network_compression_threshold", compressionThreshold );
+        requireAllPlugins = adapter.getBoolean( "require_all_plugins", requireAllPlugins );
 
         disabledCommands = new CaseInsensitiveSet( (Collection<String>) adapter.getList( "disabled_commands", Arrays.asList( "disabledcommandhere" ) ) );
 
@@ -141,5 +145,70 @@ public class Configuration implements ProxyConfig
     public Favicon getFaviconObject()
     {
         return favicon;
+    }
+
+    @Override
+    @Synchronized("servers")
+    public Map<String, ServerInfo> getServersCopy() {
+        return ImmutableMap.copyOf( servers );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public ServerInfo getServerInfo(String name)
+    {
+        return this.servers.get( name );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public ServerInfo addServer(ServerInfo server)
+    {
+        return this.servers.put( server.getName(), server );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public boolean addServers(Collection<ServerInfo> servers)
+    {
+        boolean changed = false;
+        for ( ServerInfo server : servers )
+        {
+            if ( server != this.servers.put( server.getName(), server ) ) changed = true;
+        }
+        return changed;
+    }
+
+    @Override
+    @Synchronized("servers")
+    public ServerInfo removeServerNamed(String name)
+    {
+        return this.servers.remove( name );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public ServerInfo removeServer(ServerInfo server)
+    {
+        return this.servers.remove( server.getName() );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public boolean removeServersNamed(Collection<String> names)
+    {
+        return this.servers.keySet().removeAll( names );
+    }
+
+    @Override
+    @Synchronized("servers")
+    public boolean removeServers(Collection<ServerInfo> servers)
+    {
+        boolean changed = false;
+        for ( ServerInfo server : servers )
+        {
+            if ( null != this.servers.remove( server.getName() ) ) changed = true;
+        }
+        return changed;
     }
 }

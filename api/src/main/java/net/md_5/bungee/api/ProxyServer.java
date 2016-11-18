@@ -16,7 +16,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.scheduler.TaskScheduler;
 
-public abstract class ProxyServer
+public abstract class ProxyServer implements tc.oc.minecraft.api.server.LocalServer
 {
 
     @Getter
@@ -87,14 +87,40 @@ public abstract class ProxyServer
      */
     public abstract ProxiedPlayer getPlayer(UUID uuid);
 
+    @Override
+    public ProxiedPlayer getPlayerExact(String name)
+    {
+        return getPlayer( name );
+    }
+
+    @Override
+    public Collection<ProxiedPlayer> getOnlinePlayers()
+    {
+        return getPlayers();
+    }
+
     /**
      * Return all servers registered to this proxy, keyed by name. Unlike the
      * methods in {@link ConfigurationAdapter#getServers()}, this will not
      * return a fresh map each time.
      *
      * @return all registered remote server destinations
+     *
+     * @deprecated The returned map is part of the proxy's internal state,
+     *             and may be modified concurrently by the proxy.
+     *             The safe alternative is {@link #getServersCopy()}.
      */
+    @Deprecated
     public abstract Map<String, ServerInfo> getServers();
+
+    /**
+     * Return all servers registered to this proxy, keyed by name. The returned map
+     * is an immutable snapshot of the actual server collection. It cannot be modified,
+     * and it will not change.
+     *
+     * @return all registered remote server destinations
+     */
+    public abstract Map<String, ServerInfo> getServersCopy();
 
     /**
      * Gets the server info of a server.

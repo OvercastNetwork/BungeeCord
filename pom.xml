@@ -9,7 +9,7 @@
         <version>9</version>
     </parent>
 
-    <groupId>net.md-5</groupId>
+    <groupId>tc.oc</groupId>
     <artifactId>bungeecord-parent</artifactId>
     <version>1.11-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -29,6 +29,16 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <distributionManagement>
+        <repository>
+            <id>overcast-deployment</id>
+            <url>https://repo.oc.tc/content/repositories/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>overcast-deployment</id>
+            <url>https://repo.oc.tc/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <developers>
         <developer>
@@ -116,31 +126,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>animal-sniffer-maven-plugin</artifactId>
-                <version>1.13</version>
-                <executions>
-                    <execution>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <ignores>
-                        <ignore>java.lang.ClassLoader</ignore>
-                        <ignore>java.lang.Throwable</ignore>
-                        <ignore>java.util.Locale</ignore>
-                    </ignores>
-                    <signature>
-                        <groupId>org.codehaus.mojo.signature</groupId>
-                        <artifactId>java16</artifactId>
-                        <version>1.1</version>
-                    </signature>
-                </configuration>
             </plugin>
             <!-- OSS Parent 9 uses 2.7, 2.10+ is broken anyway -->
             <plugin>

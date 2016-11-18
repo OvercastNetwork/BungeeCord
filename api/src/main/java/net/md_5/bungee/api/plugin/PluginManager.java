@@ -3,18 +3,16 @@ package net.md_5.bungee.api.plugin;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.eventbus.Subscribe;
 import java.io.File;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.URL;
-import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +21,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
+
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.CommandSender;
@@ -33,13 +33,14 @@ import net.md_5.bungee.event.EventHandler;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.introspector.PropertyUtils;
+import tc.oc.minecraft.api.plugin.PluginFinder;
 
 /**
  * Class to manage bridging between plugin duties and implementation duties, for
  * example event handling and plugin management.
  */
 @RequiredArgsConstructor
-public class PluginManager
+public class PluginManager implements PluginFinder, tc.oc.minecraft.api.event.EventBus
 {
 
     private static final Pattern argsSplit = Pattern.compile( " " );
@@ -51,6 +52,9 @@ public class PluginManager
     private final Map<String, Plugin> plugins = new LinkedHashMap<>();
     private final Map<String, Command> commandMap = new HashMap<>();
     private Map<String, PluginDescription> toLoad = new HashMap<>();
+    private final @Getter List<Plugin> loadedPlugins = new ArrayList<>();
+    private final @Getter List<Plugin> enabledPlugins = new ArrayList<>();
+    private final Map<String, PluginClassloader> classLoaders = new HashMap<>();
     private final Multimap<Plugin, Command> commandsByPlugin = ArrayListMultimap.create();
     private final Multimap<Plugin, Listener> listenersByPlugin = ArrayListMultimap.create();
 
@@ -174,6 +178,8 @@ public class PluginManager
                     tabResults.add( s );
                 }
             }
+        } catch ( CommandBypassException ex ) {
+            return false;
         } catch ( Exception ex )
         {
             sender.sendMessage( ChatColor.RED + "An internal error occurred whilst executing this command, please check the console log for details." );
@@ -192,6 +198,12 @@ public class PluginManager
         return plugins.values();
     }
 
+    @Override
+    public Collection<? extends Plugin> getAllPlugins()
+    {
+        return getPlugins();
+    }
+
     /**
      * Returns a loaded plugin identified by the specified name.
      *
@@ -203,15 +215,16 @@ public class PluginManager
         return plugins.get( name );
     }
 
-    public void loadPlugins()
+    public void loadPlugins() throws Exception
     {
         Map<PluginDescription, Boolean> pluginStatuses = new HashMap<>();
+        Map<PluginDescription, PluginClassloader> pluginLoaders = new HashMap<>();
         for ( Map.Entry<String, PluginDescription> entry : toLoad.entrySet() )
         {
             PluginDescription plugin = entry.getValue();
-            if ( !enablePlugin( pluginStatuses, new Stack<PluginDescription>(), plugin ) )
+            if ( !loadPlugin(pluginStatuses, pluginLoaders, new Stack<PluginDescription>(), plugin ) )
             {
-                ProxyServer.getInstance().getLogger().log( Level.WARNING, "Failed to enable {0}", entry.getKey() );
+                ProxyServer.getInstance().getLogger().log( Level.SEVERE, "Failed to load {0}", entry.getKey() );
             }
         }
         toLoad.clear();
@@ -220,23 +233,27 @@ public class PluginManager
 
     public void enablePlugins()
     {
-        for ( Plugin plugin : plugins.values() )
+        for ( Plugin plugin : loadedPlugins )
         {
             try
             {
                 plugin.onEnable();
+                enabledPlugins.add(plugin);
                 ProxyServer.getInstance().getLogger().log( Level.INFO, "Enabled plugin {0} version {1} by {2}", new Object[]
                 {
                     plugin.getDescription().getName(), plugin.getDescription().getVersion(), plugin.getDescription().getAuthor()
                 } );
             } catch ( Throwable t )
             {
-                ProxyServer.getInstance().getLogger().log( Level.WARNING, "Exception encountered when loading plugin: " + plugin.getDescription().getName(), t );
+                ProxyServer.getInstance().getLogger().log( Level.SEVERE, "Exception encountered when enabling plugin: " + plugin.getDescription().getName(), t );
+                if(proxy.getConfig().isRequireAllPlugins()) {
+                    throw t;
+                }
             }
         }
     }
 
-    private boolean enablePlugin(Map<PluginDescription, Boolean> pluginStatuses, Stack<PluginDescription> dependStack, PluginDescription plugin)
+    private boolean loadPlugin(Map<PluginDescription, Boolean> pluginStatuses, Map<PluginDescription, PluginClassloader> pluginLoaders, Stack<PluginDescription> dependStack, PluginDescription plugin) throws Exception
     {
         if ( pluginStatuses.containsKey( plugin ) )
         {
@@ -244,12 +261,13 @@ public class PluginManager
         }
 
         // combine all dependencies for 'for loop'
-        Set<String> dependencies = new HashSet<>();
+        Set<String> dependencies = new LinkedHashSet<>();
         dependencies.addAll( plugin.getDepends() );
         dependencies.addAll( plugin.getSoftDepends() );
 
         // success status
         boolean status = true;
+        final List<PluginClassloader> dependLoaders = new ArrayList<>();
 
         // try to load dependencies first
         for ( String dependName : dependencies )
@@ -267,19 +285,23 @@ public class PluginManager
                         dependencyGraph.append( element.getName() ).append( " -> " );
                     }
                     dependencyGraph.append( plugin.getName() ).append( " -> " ).append( dependName );
-                    ProxyServer.getInstance().getLogger().log( Level.WARNING, "Circular dependency detected: {0}", dependencyGraph );
+                    ProxyServer.getInstance().getLogger().log( Level.SEVERE, "Circular dependency detected: {0}", dependencyGraph );
                     status = false;
                 } else
                 {
                     dependStack.push( plugin );
-                    dependStatus = this.enablePlugin( pluginStatuses, dependStack, depend );
+                    dependStatus = this.loadPlugin(pluginStatuses, pluginLoaders, dependStack, depend );
                     dependStack.pop();
                 }
             }
 
+            if(Boolean.TRUE.equals(dependStatus)) {
+                dependLoaders.add(Preconditions.checkNotNull(pluginLoaders.get(depend)));
+            }
+
             if ( dependStatus == Boolean.FALSE && plugin.getDepends().contains( dependName ) ) // only fail if this wasn't a soft dependency
             {
-                ProxyServer.getInstance().getLogger().log( Level.WARNING, "{0} (required by {1}) is unavailable", new Object[]
+                ProxyServer.getInstance().getLogger().log( Level.SEVERE, "{0} (required by {1}) is unavailable", new Object[]
                 {
                     String.valueOf( dependName ), plugin.getName()
                 } );
@@ -297,24 +319,33 @@ public class PluginManager
         {
             try
             {
-                URLClassLoader loader = new PluginClassloader( new URL[]
+                PluginClassloader loader = new PluginClassloader(dependLoaders, new URL[]
                 {
                     plugin.getFile().toURI().toURL()
                 } );
+                pluginLoaders.put(plugin, loader);
                 Class<?> main = loader.loadClass( plugin.getMain() );
                 Plugin clazz = (Plugin) main.getDeclaredConstructor().newInstance();
 
                 clazz.init( proxy, plugin );
                 plugins.put( plugin.getName(), clazz );
                 clazz.onLoad();
+                loadedPlugins.add(clazz);
                 ProxyServer.getInstance().getLogger().log( Level.INFO, "Loaded plugin {0} version {1} by {2}", new Object[]
                 {
                     plugin.getName(), plugin.getVersion(), plugin.getAuthor()
                 } );
             } catch ( Throwable t )
             {
-                proxy.getLogger().log( Level.WARNING, "Error enabling plugin " + plugin.getName(), t );
+                proxy.getLogger().log( Level.SEVERE, "Error loading plugin " + plugin.getName(), t );
+                if(proxy.getConfig().isRequireAllPlugins()) {
+                    throw t;
+                }
             }
+        }
+
+        if(!status && proxy.getConfig().isRequireAllPlugins()) {
+            throw new IllegalStateException("Failed to load required plugin " + plugin.getName());
         }
 
         pluginStatuses.put( plugin, status );
@@ -388,6 +419,24 @@ public class PluginManager
         return event;
     }
 
+    @Override
+    public void registerListener(tc.oc.minecraft.api.plugin.Plugin plugin, tc.oc.minecraft.api.event.Listener listener)
+    {
+        registerListener( (Plugin) plugin, (Listener) listener );
+    }
+
+    @Override
+    public void unregisterListener(tc.oc.minecraft.api.event.Listener listener)
+    {
+        unregisterListener( (Listener) listener );
+    }
+
+    @Override
+    public void unregisterListeners(tc.oc.minecraft.api.plugin.Plugin plugin)
+    {
+        unregisterListeners( (Plugin) plugin );
+    }
+
     /**
      * Register a {@link Listener} for receiving called events. Methods in this
      * Object which wish to receive events must be annotated with the
@@ -398,11 +447,6 @@ public class PluginManager
      */
     public void registerListener(Plugin plugin, Listener listener)
     {
-        for ( Method method : listener.getClass().getDeclaredMethods() )
-        {
-            Preconditions.checkArgument( !method.isAnnotationPresent( Subscribe.class ),
-                    "Listener %s has registered using deprecated subscribe annotation! Please update to @EventHandler.", listener );
-        }
         eventBus.register( listener );
         listenersByPlugin.put( plugin, listener );
     }

@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.UUID;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Synchronized;
@@ -67,6 +69,32 @@ public class BungeeServerInfo implements ServerInfo
     public Collection<ProxiedPlayer> getPlayers()
     {
         return Collections.unmodifiableCollection( new HashSet( players ) );
+    }
+
+    @Override
+    public Collection<? extends ProxiedPlayer> getOnlinePlayers()
+    {
+        return getPlayers();
+    }
+
+    @Override
+    public ProxiedPlayer getPlayerExact(String name)
+    {
+        for(ProxiedPlayer player : getPlayers())
+        {
+            if(name.equalsIgnoreCase(player.getName())) return player;
+        }
+        return null;
+    }
+
+    @Override
+    public ProxiedPlayer getPlayer(UUID id)
+    {
+        for(ProxiedPlayer player : getPlayers())
+        {
+            if(id.equals(player.getUniqueId())) return player;
+        }
+        return null;
     }
 
     @Override

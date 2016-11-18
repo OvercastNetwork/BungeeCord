@@ -32,8 +32,74 @@ public interface ProxyConfig
 
     /**
      * Set of all servers.
+     *
+     * @deprecated The returned map may be modified concurrently by the proxy.
+     *             The safe alternative is {@link #getServersCopy()}.
      */
+    @Deprecated
     Map<String, ServerInfo> getServers();
+
+    /**
+     * Return all servers registered to this proxy, keyed by name. The returned map
+     * is an immutable snapshot of the actual server collection. It cannot be modified,
+     * and it will not change.
+     *
+     * @return all registered remote server destinations
+     */
+    Map<String, ServerInfo> getServersCopy();
+
+    /**
+     * Gets the server info of a server.
+     *
+     * @param name the name of the configured server
+     * @return the server info belonging to the specified server
+     */
+    ServerInfo getServerInfo(String name);
+
+    /**
+     * Register the given server to the proxy.
+     * Any currently registered server with the same name will be replaced.
+     *
+     * @return the previously registered server with the same name, or null if there was no such server.
+     */
+    ServerInfo addServer(ServerInfo server);
+
+    /**
+     * Register all of the given servers to the proxy.
+     *
+     * @return true if any servers were added or replaced.
+     */
+    boolean addServers(Collection<ServerInfo> servers);
+
+    /**
+     * Un-register the server with the given name from the proxy.
+     *
+     * @return the server that was removed, or null if there is no server with the given name.
+     */
+    ServerInfo removeServerNamed(String name);
+
+    /**
+     * Un-register the given server from the proxy.
+     * The server is matched by name only, other fields in the given {@link ServerInfo} are ignored.
+     *
+     * @return the server that was removed, or null if there is no server with a matching name.
+     */
+    ServerInfo removeServer(ServerInfo server);
+
+    /**
+     * Un-register servers with any of the given names from the proxy.
+     *
+     * @return true if any servers were removed.
+     */
+    boolean removeServersNamed(Collection<String> names);
+
+    /**
+     * Un-register all of the given servers from the proxy.
+     * The servers are matched by name only, other fields in the given {@link ServerInfo} are ignored.
+     *
+     * @return true if any servers were removed.
+     */
+    boolean removeServers(Collection<ServerInfo> servers);
 
     /**
      * Does the server authenticate with mojang
@@ -79,4 +145,9 @@ public interface ProxyConfig
      * The favicon used for the server ping list.
      */
     Favicon getFaviconObject();
+
+    /**
+     * Shutdown immediately if any plugins fail to load
+     */
+    boolean isRequireAllPlugins();
 }

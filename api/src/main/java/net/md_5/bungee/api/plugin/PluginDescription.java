@@ -1,8 +1,12 @@
 package net.md_5.bungee.api.plugin;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PluginDescription
+public class PluginDescription implements tc.oc.minecraft.api.plugin.PluginDescription
 {
 
     /**
@@ -48,4 +52,22 @@ public class PluginDescription
      * Optional description.
      */
     private String description = null;
+
+    @Override
+    public List<String> getAuthors()
+    {
+        return Collections.singletonList( author );
+    }
+
+    @Override
+    public List<String> getDepend()
+    {
+        return ImmutableList.copyOf( getDepends() );
+    }
+
+    @Override
+    public List<String> getSoftDepend()
+    {
+        return ImmutableList.copyOf( getSoftDepends() );
+    }
 }

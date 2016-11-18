@@ -1,5 +1,7 @@
 package net.md_5.bungee.chat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -35,8 +37,8 @@ public class ComponentsTest
 
         Assert.assertEquals( "Text http://spigotmc.org google.com/test", BaseComponent.toPlainText( test2 ) );
         //The extra ChatColor.WHITEs are sometimes inserted when not needed but it doesn't change the result
-        Assert.assertEquals( ChatColor.WHITE + "Text " + ChatColor.WHITE + "http://spigotmc.org" + ChatColor.WHITE
-                + " " + ChatColor.GREEN + "google.com/test", BaseComponent.toLegacyText( test2 ) );
+        Assert.assertEquals( ChatColor.WHITE + "Text " + ChatColor.WHITE + "http://spigotmc.org" + ChatColor.WHITE + " " + ChatColor.GREEN + "google.com/test",
+                             BaseComponent.toLegacyText( ChatColor.WHITE, ImmutableSet.<ChatColor>of(), test2 ) );
 
         ClickEvent url1 = test2[1].getClickEvent();
         Assert.assertNotNull( url1 );
@@ -60,13 +62,13 @@ public class ComponentsTest
 
         Assert.assertEquals( "Given Golden Sword * 5 to thinkofdeath", translatableComponent.toPlainText() );
         Assert.assertEquals( ChatColor.WHITE + "Given " + ChatColor.AQUA + "Golden Sword" + ChatColor.WHITE
-                + " * " + ChatColor.WHITE + "5" + ChatColor.WHITE + " to " + ChatColor.WHITE + "thinkofdeath",
-                translatableComponent.toLegacyText() );
+                + " * 5 to thinkofdeath",
+                translatableComponent.toLegacyText(ChatColor.WHITE) );
 
         TranslatableComponent positional = new TranslatableComponent( "book.pageIndicator", "5", "50" );
 
         Assert.assertEquals( "Page 5 of 50", positional.toPlainText() );
-        Assert.assertEquals( ChatColor.WHITE + "Page " + ChatColor.WHITE + "5" + ChatColor.WHITE + " of " + ChatColor.WHITE + "50", positional.toLegacyText() );
+        Assert.assertEquals( ChatColor.WHITE + "Page 5 of 50", positional.toLegacyText(ChatColor.WHITE) );
     }
 
     @Test
@@ -123,26 +125,49 @@ public class ComponentsTest
         Assert.assertEquals( eventRetention[1].getClickEvent(), testClickEvent );
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testLoopSimple()
     {
         TextComponent component = new TextComponent( "Testing" );
-        component.addExtra( component );
-        ComponentSerializer.toString( component );
+
+        try {
+            component.addExtra( component );
+            Assert.fail();
+        } catch(IllegalArgumentException ignored) {}
+
+        try {
+            component.setExtra( component );
+            Assert.fail();
+        } catch(IllegalArgumentException ignored) {}
+
+        try {
+            component.setExtra(ImmutableList.<BaseComponent>of(component));
+            Assert.fail();
+        } catch(IllegalArgumentException ignored) {}
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testLoopComplex()
     {
         TextComponent a = new TextComponent( "A" );
         TextComponent b = new TextComponent( "B" );
-        b.setColor( ChatColor.AQUA );
         TextComponent c = new TextComponent( "C" );
-        c.setColor( ChatColor.RED );
         a.addExtra( b );
         b.addExtra( c );
-        c.addExtra( a );
-        ComponentSerializer.toString( a );
+
+        try {
+            c.addExtra( a );
+            Assert.fail();
+        } catch(IllegalArgumentException ignored) {}
+    }
+
+    @Test
+    public void testLoopInTranslatable() {
+        TranslatableComponent c = new TranslatableComponent("hi");
+        try {
+            c.addWith(c);
+            Assert.fail();
+        } catch(IllegalArgumentException ignored) {}
     }
 
     @Test
@@ -152,21 +177,6 @@ public class ComponentsTest
         TextComponent b = new TextComponent( "B" );
         b.setColor( ChatColor.AQUA );
         a.addExtra( b );
-        a.addExtra( b );
-        ComponentSerializer.toString( a );
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testRepeatedError()
-    {
-        TextComponent a = new TextComponent( "A" );
-        TextComponent b = new TextComponent( "B" );
-        b.setColor( ChatColor.AQUA );
-        TextComponent c = new TextComponent( "C" );
-        c.setColor( ChatColor.RED );
-        a.addExtra( b );
-        a.addExtra( c );
-        c.addExtra( a );
         a.addExtra( b );
         ComponentSerializer.toString( a );
     }

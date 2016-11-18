@@ -2,7 +2,10 @@ package net.md_5.bungee.api;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
+
+import com.google.common.collect.ImmutableSet;
 import lombok.Getter;
 
 /**
@@ -105,6 +108,15 @@ public enum ChatColor
      */
     public static final char COLOR_CHAR = '\u00A7';
     public static final String ALL_CODES = "0123456789AaBbCcDdEeFfKkLlMmNnOoRr";
+
+    public static final Set<ChatColor> DECORATIONS = ImmutableSet.of(
+        BOLD,
+        ITALIC,
+        UNDERLINE,
+        STRIKETHROUGH,
+        MAGIC
+    );
+
     /**
      * Pattern to remove all colour codes.
      */
@@ -146,6 +158,14 @@ public enum ChatColor
     public String toString()
     {
         return toString;
+    }
+
+    public boolean isColor() {
+        return this == RESET || (code >= '0' && code <= 'f');
+    }
+
+    public boolean isDecoration() {
+        return DECORATIONS.contains(this);
     }
 
     /**

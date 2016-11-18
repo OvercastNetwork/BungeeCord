@@ -1,5 +1,6 @@
 package net.md_5.bungee.config;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -7,12 +8,17 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
+import tc.oc.minecraft.api.configuration.AbstractConfigurationSection;
+import tc.oc.minecraft.api.configuration.InvalidConfigurationException;
 
-public final class Configuration
+public final class Configuration extends AbstractConfigurationSection implements tc.oc.minecraft.api.configuration.Configuration
 {
 
     private static final char SEPARATOR = '.';
+    final String absolutePath;
     final Map<String, Object> self;
+    @Getter
     private final Configuration defaults;
 
     public Configuration()
@@ -25,8 +31,19 @@ public final class Configuration
         this( new LinkedHashMap<String, Object>(), defaults );
     }
 
+    public Configuration(Configuration values, Configuration defaults)
+    {
+        this( values.self, defaults );
+    }
+
     Configuration(Map<?, ?> map, Configuration defaults)
     {
+        this("", map, defaults);
+    }
+
+    Configuration(String absolutePath, Map<?, ?> map, Configuration defaults)
+    {
+        this.absolutePath = absolutePath;
         this.self = new LinkedHashMap<>();
         this.defaults = defaults;
 
@@ -56,7 +73,7 @@ public final class Configuration
         Object section = self.get( root );
         if ( section == null )
         {
-            section = new Configuration( ( defaults == null ) ? null : defaults.getSection( path ) );
+            section = new Configuration( resolvePath(path), ImmutableMap.of(), (defaults == null ) ? null : defaults.getSection(path ) );
             self.put( root, section );
         }
 
@@ -134,6 +151,11 @@ public final class Configuration
     {
         Object def = getDefault( path );
         return (Configuration) get( path, ( def instanceof Configuration ) ? def : new Configuration( ( defaults == null ) ? null : defaults.getSection( path ) ) );
+    }
+
+    @Override
+    public Configuration needSection(String path) throws InvalidConfigurationException {
+        return needType(path, Configuration.class);
     }
 
     /**
@@ -410,5 +432,10 @@ public final class Configuration
     {
         Object val = get( path, def );
         return ( val instanceof List<?> ) ? (List<?>) val : def;
+    }
+
+    @Override
+    public String getCurrentPath() {
+        return absolutePath;
     }
 }

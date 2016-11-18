@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -55,6 +57,8 @@ import net.md_5.bungee.api.ReconnectHandler;
 import net.md_5.bungee.api.ServerPing;
 import net.md_5.bungee.api.Title;
 import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.ScoreComponent;
+import net.md_5.bungee.api.chat.SelectorComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import net.md_5.bungee.api.config.ConfigurationAdapter;
@@ -64,6 +68,8 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.plugin.PluginManager;
 import net.md_5.bungee.chat.ComponentSerializer;
+import net.md_5.bungee.chat.ScoreComponentSerializer;
+import net.md_5.bungee.chat.SelectorComponentSerializer;
 import net.md_5.bungee.chat.TextComponentSerializer;
 import net.md_5.bungee.chat.TranslatableComponentSerializer;
 import net.md_5.bungee.command.CommandBungee;
@@ -88,6 +94,7 @@ import net.md_5.bungee.query.RemoteQuery;
 import net.md_5.bungee.scheduler.BungeeScheduler;
 import net.md_5.bungee.util.CaseInsensitiveMap;
 import org.fusesource.jansi.AnsiConsole;
+import tc.oc.minecraft.api.plugin.PluginFinder;
 
 /**
  * Main BungeeCord proxy class.
@@ -130,7 +137,7 @@ public class BungeeCord extends ProxyServer
      * Plugin manager.
      */
     @Getter
-    public final PluginManager pluginManager = new PluginManager( this );
+    public final PluginManager pluginManager;
     @Getter
     @Setter
     private ReconnectHandler reconnectHandler;
@@ -150,23 +157,13 @@ public class BungeeCord extends ProxyServer
             .registerTypeAdapter( BaseComponent.class, new ComponentSerializer() )
             .registerTypeAdapter( TextComponent.class, new TextComponentSerializer() )
             .registerTypeAdapter( TranslatableComponent.class, new TranslatableComponentSerializer() )
+            .registerTypeAdapter( SelectorComponent.class, new SelectorComponentSerializer() )
+            .registerTypeAdapter( ScoreComponent.class, new ScoreComponentSerializer() )
             .registerTypeAdapter( ServerPing.PlayerInfo.class, new PlayerInfoSerializer() )
             .registerTypeAdapter( Favicon.class, Favicon.getFaviconTypeAdapter() ).create();
     @Getter
     private ConnectionThrottle connectionThrottle;
     private final ModuleManager moduleManager = new ModuleManager();
-
-    
-    {
-        // TODO: Proper fallback when we interface the manager
-        getPluginManager().registerCommand( null, new CommandReload() );
-        getPluginManager().registerCommand( null, new CommandEnd() );
-        getPluginManager().registerCommand( null, new CommandIP() );
-        getPluginManager().registerCommand( null, new CommandBungee() );
-        getPluginManager().registerCommand( null, new CommandPerms() );
-
-        registerChannel( "BungeeCord" );
-    }
 
     public static BungeeCord getInstance()
     {
@@ -179,7 +176,8 @@ public class BungeeCord extends ProxyServer
         // Java uses ! to indicate a resource inside of a jar/zip/other container. Running Bungee from within a directory that has a ! will cause this to muck up.
         Preconditions.checkState( new File( "." ).getAbsolutePath().indexOf( '!' ) == -1, "Cannot use BungeeCord in directory with ! in path." );
 
-        System.setSecurityManager( new BungeeSecurityManager() );
+        // Overcast - disable security manager
+        // System.setSecurityManager( new BungeeSecurityManager() );
 
         try
         {
@@ -211,8 +209,10 @@ public class BungeeCord extends ProxyServer
         consoleReader = new ConsoleReader();
         consoleReader.setExpandEvents( false );
 
-        logger = new BungeeLogger( "BungeeCord", "proxy.log", consoleReader );
-        System.setErr( new PrintStream( new LoggingOutputStream( logger, Level.SEVERE ), true ) );
+        logger = BungeeLogger.get( "BungeeCord", "proxy.log", consoleReader );
+
+        // Overcast - stderr gets a lot of non-error output, so log it at WARNING level instead of SEVERE
+        System.setErr( new PrintStream( new LoggingOutputStream( logger, Level.WARNING ), true ) );
         System.setOut( new PrintStream( new LoggingOutputStream( logger, Level.INFO ), true ) );
 
         if ( !Boolean.getBoolean( "net.md_5.bungee.native.disable" ) )
@@ -232,6 +232,17 @@ public class BungeeCord extends ProxyServer
                 logger.info( "Using standard Java compressor. To enable zero copy compression, run on 64 bit Linux" );
             }
         }
+
+        pluginManager = new PluginManager( this );
+
+        // TODO: Proper fallback when we interface the manager
+        getPluginManager().registerCommand( null, new CommandReload() );
+        getPluginManager().registerCommand( null, new CommandEnd() );
+        getPluginManager().registerCommand( null, new CommandIP() );
+        getPluginManager().registerCommand( null, new CommandBungee() );
+        getPluginManager().registerCommand( null, new CommandPerms() );
+
+        registerChannel( "BungeeCord" );
     }
 
     /**
@@ -411,7 +422,7 @@ public class BungeeCord extends ProxyServer
 
                 // TODO: Fix this shit
                 getLogger().info( "Disabling plugins" );
-                for ( Plugin plugin : Lists.reverse( new ArrayList<>( pluginManager.getPlugins() ) ) )
+                for ( Plugin plugin : Lists.reverse( new ArrayList<>( pluginManager.getEnabledPlugins() ) ) )
                 {
                     try
                     {
@@ -557,9 +568,15 @@ public class BungeeCord extends ProxyServer
     }
 
     @Override
+    public Map<String, ServerInfo> getServersCopy()
+    {
+        return config.getServersCopy();
+    }
+
+    @Override
     public ServerInfo getServerInfo(String name)
     {
-        return getServers().get( name );
+        return config.getServerInfo( name );
     }
 
     @Override
@@ -604,6 +621,11 @@ public class BungeeCord extends ProxyServer
     public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted)
     {
         return new BungeeServerInfo( name, address, motd, restricted );
+    }
+
+    @Override
+    public tc.oc.minecraft.api.command.ConsoleCommandSender getConsoleSender() {
+        return ConsoleCommandSender.getInstance();
     }
 
     @Override
@@ -694,5 +716,15 @@ public class BungeeCord extends ProxyServer
     public Title createTitle()
     {
         return new BungeeTitle();
+    }
+
+    @Override
+    public Set<Integer> getProtocolVersions() {
+        return ImmutableSet.copyOf(ProtocolConstants.SUPPORTED_VERSION_IDS);
+    }
+
+    @Override
+    public PluginFinder getPluginFinder() {
+        return pluginManager;
     }
 }

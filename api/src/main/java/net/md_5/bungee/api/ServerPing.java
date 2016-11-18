@@ -140,7 +140,7 @@ public class ServerPing
     @Deprecated
     public void setDescription(String description)
     {
-        this.description = new TextComponent( TextComponent.fromLegacyText( description ) );
+        this.description = new TextComponent( TextComponent.fromLegacyText( description, false ) );
     }
 
     @Deprecated

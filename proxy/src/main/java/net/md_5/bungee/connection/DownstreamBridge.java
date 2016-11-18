@@ -68,7 +68,7 @@ public class DownstreamBridge extends PacketHandler
             con.sendMessage( bungee.getTranslation( "server_went_down" ) );
         } else
         {
-            con.disconnect( Util.exception( t ) );
+            con.disconnect( t );
         }
     }
 
@@ -326,6 +326,14 @@ public class DownstreamBridge extends PacketHandler
                 if ( server != null )
                 {
                     con.connect( server );
+                }
+            }
+            if ( subChannel.equals( "ConnectQuiet" ) )
+            {
+                ServerInfo server = bungee.getServerInfo( in.readUTF() );
+                if ( server != null )
+                {
+                    con.connect( server, null, false, true );
                 }
             }
             if ( subChannel.equals( "ConnectOther" ) )

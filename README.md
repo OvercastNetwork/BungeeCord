@@ -1,5 +1,8 @@
 BungeeCord
 ==========
+
+**NOTE**: This repository is no longer maintained, but a popular [fork](https://github.com/StratusNetwork/BungeeCord) is still active.
+
 Layer 7 proxy designed to link Minecraft servers.
 --------------------------------------------------
 

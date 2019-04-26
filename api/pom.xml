@@ -19,9 +19,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>tc.oc</groupId>
+            <groupId>com.github.OvercastNetwork</groupId>
             <artifactId>minecraft-api</artifactId>
-            <version>1.11-SNAPSHOT</version>
+            <version>1.1</version>
         </dependency>
         <dependency>
             <groupId>tc.oc</groupId>

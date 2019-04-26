@@ -32,25 +32,10 @@
 
     <repositories>
         <repository>
-            <id>pa-snapshots</id>
-            <url>https://repo.extension.ws/content/repositories/snapshots</url>
-        </repository>
-        <repository>
-            <id>pa-releases</id>
-            <url>https://repo.extension.ws/content/repositories/releases</url>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
-
-    <distributionManagement>
-        <repository>
-            <id>pa-deployment</id>
-            <url>https://repo.extension.ws/content/repositories/releases</url>
-        </repository>
-        <snapshotRepository>
-            <id>pa-deployment</id>
-            <url>https://repo.extension.ws/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <developers>
         <developer>
